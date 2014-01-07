@@ -16,6 +16,7 @@ parser = argparse.ArgumentParser(description='List of all threat signatures(Vuln
 
 parser.add_argument('-t', action="store", type=str, choices=['vul', 'ph'], help='Type of signature');
 parser.add_argument('-f', action='store_true', help='Use key file keylist.txt to skip user/password authentication')
+parser.add_argument('-s', action='store_true', help='Get simple output which doesn\'t include full description of signatures')
 parser.add_argument('-o', help='write to a file instead of stdout. Specify a filename')
 parser.add_argument('hostname', action="store", default=False, help='PANW Firewall hostname')
 
@@ -157,14 +158,26 @@ else:
 		print ("-----")
 	if threat_type == 'vulnerability':
 		if args.o:
-			f_list.write("id\tname\tseverity\tcategory\tdefault-action\taffected-host\tcve#\tvendorID\tdescription\n")
+			if args.s:
+				f_list.write("id\tname\tseverity\tcategory\tdefault-action\taffected-host\tcve#\tvendorID\n")
+			else:
+				f_list.write("id\tname\tseverity\tcategory\tdefault-action\taffected-host\tcve#\tvendorID\tdescription\n")
 		else:
-			print "id\tname\tseverity\tcategory\tdefault-action\taffected-host\tcve#\tvendorID\tdescription"
+			if args.s:
+				print "id\tname\tseverity\tcategory\tdefault-action\taffected-host\tcve#\tvendorID"
+			else:
+				print "id\tname\tseverity\tcategory\tdefault-action\taffected-host\tcve#\tvendorID\tdescription"
 	else:
 		if args.o:
-			f_list.write("id\tname\tseverity\tcategory\tdefault-action\tdescription\n")
+			if args.s:
+				f_list.write("id\tname\tseverity\tcategory\tdefault-action\n")
+			else:
+				f_list.write("id\tname\tseverity\tcategory\tdefault-action\tdescription\n")
 		else:
-			print "id,name,severity,category,default-action,description"
+			if args.s:
+				print "id,name,severity,category,default-action"
+			else:
+				print "id,name,severity,category,default-action,description"
 
 # sort
 	container = sig_tree
@@ -183,29 +196,29 @@ else:
 		category = element.find('category').text
 
 # get description
-		params_des = urllib.urlencode({'type': 'op', 'key': sessionkey, 'cmd': '<show><threat><id>' + id + '</id></threat></show>' })
-		try:
-			response_des = urllib2.urlopen(fw_url, params_des , 10).read()
-		except URLError, e:
-			if hasattr(e, 'reason'):
-				print 'We failed to reach a server.'
-				print 'Reason: ', e.reason
-			elif hasattr(e, 'code'):
-				print 'The server couldn\'t fulfill the request.'
-				print 'Error code: ', e.code
-			sys.exit(1)
-		else:
-#			print response_des
-			des_tree = ET.fromstring(response_des)
-			if des_tree.get('status') == "success":
-				desc_raw = des_tree.find('result/entry/description').text.strip()
-				description = desc_raw.replace('\n', ' ')
-#				threat_date = sysinfo_tree.find('result/system/threat-release-date').text
-
-#				print description
-			else:
-				print response_des
+		if not args.s:
+			params_des = urllib.urlencode({'type': 'op', 'key': sessionkey, 'cmd': '<show><threat><id>' + id + '</id></threat></show>' })
+			try:
+				response_des = urllib2.urlopen(fw_url, params_des , 10).read()
+			except URLError, e:
+				if hasattr(e, 'reason'):
+					print 'We failed to reach a server.'
+					print 'Reason: ', e.reason
+				elif hasattr(e, 'code'):
+					print 'The server couldn\'t fulfill the request.'
+					print 'Error code: ', e.code
 				sys.exit(1)
+			else:
+#				print response_des
+				des_tree = ET.fromstring(response_des)
+				if des_tree.get('status') == "success":
+					desc_raw = des_tree.find('result/entry/description').text.strip()
+					description = desc_raw.replace('\n', ' ')
+#					threat_date = sysinfo_tree.find('result/system/threat-release-date').text
+	
+#					print description
+				else:
+					print response_des
 #
 
 		if element.find('default-action') is None :
@@ -231,16 +244,26 @@ else:
 				affect = ''
 			
 			if args.o:
-				f_list.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\n".format(id,name,severity,category,d_act,affect,cve,vendor,description))
+				if args.s:
+					f_list.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n".format(id,name,severity,category,d_act,affect,cve,vendor))
+				else:
+					f_list.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\n".format(id,name,severity,category,d_act,affect,cve,vendor,description))
 			else:
-				print("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}".format(id,name,severity,category,d_act,affect,cve,vendor,description))
+				if args.s:
+					print("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}".format(id,name,severity,category,d_act,affect,cve,vendor))
+				else:
+					print("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}".format(id,name,severity,category,d_act,affect,cve,vendor,description))
 		else:
 			if args.o:
-				f_list.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n".format(id,name,severity,category,d_act,description))
+				if args.s:
+					f_list.write("{0}\t{1}\t{2}\t{3}\t{4}\n".format(id,name,severity,category,d_act))
+				else:
+					f_list.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n".format(id,name,severity,category,d_act,description))
 			else:
-				print("{0}\t{1}\t{2}\t{3}\t{4}\t{5}".format(id,name,severity,category,d_act,description))
-
-
+				if args.s:
+					print("{0}\t{1}\t{2}\t{3}\t{4}".format(id,name,severity,category,d_act))
+				else:
+					print("{0}\t{1}\t{2}\t{3}\t{4}\t{5}".format(id,name,severity,category,d_act,description))
 if args.o:
 	f_list.close()
 sys.exit(0)
