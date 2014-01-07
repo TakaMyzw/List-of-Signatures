@@ -44,6 +44,7 @@ def keygen(url):
 		elif hasattr(e, 'code'):
 			print 'The server couldn\'t fulfill the request.'
 			print 'Error code: ', e.code
+		sys.exit(1)
 	else:
 		key_tree = ET.fromstring(response_keygen)
 #		if sysinfo_tree.get('status') == "success":
@@ -102,6 +103,7 @@ except URLError, e:
 	elif hasattr(e, 'code'):
 		print 'The server couldn\'t fulfill the request.'
 		print 'Error code: ', e.code
+	sys.exit(1)
 except HTTPError, e:
 	if hasattr(e, 'reason'):
 		print 'We failed to reach a server.'
@@ -109,6 +111,7 @@ except HTTPError, e:
 	elif hasattr(e, 'code'):
 		print 'The server couldn\'t fulfill the request.'
 		print 'Error code: ', e.code
+	sys.exit(1)
 else:
 
 	sysinfo_tree = ET.fromstring(response_sysinfo)
@@ -139,6 +142,7 @@ except URLError, e:
 	elif hasattr(e, 'code'):
 		print 'The server couldn\'t fulfill the request.'
 		print 'Error code: ', e.code
+	sys.exit(1)
 else:
 
 #	print response_sig
@@ -189,6 +193,7 @@ else:
 			elif hasattr(e, 'code'):
 				print 'The server couldn\'t fulfill the request.'
 				print 'Error code: ', e.code
+			sys.exit(1)
 		else:
 #			print response_des
 			des_tree = ET.fromstring(response_des)
@@ -238,4 +243,4 @@ else:
 
 if args.o:
 	f_list.close()
-exit(0)
+sys.exit(0)
