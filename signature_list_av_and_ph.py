@@ -5,9 +5,15 @@ import xml.etree.ElementTree as ET
 import httplib
 import urllib
 import urllib2
+import ssl
+import cookielib
 import re
 import os
 from urllib2 import Request, urlopen, URLError, HTTPError
+
+# skip server certificate validation
+if hasattr(ssl, '_create_unverified_context'):
+	ssl._create_default_https_context = ssl._create_unverified_context
 
 keylist = './keylist.txt'
 sessionkey = 0
@@ -16,7 +22,7 @@ parser = argparse.ArgumentParser(description='List of all threat signatures(Vuln
 
 parser.add_argument('-t', action="store", type=str, choices=['vul', 'ph'], help='Type of signature');
 parser.add_argument('-f', action='store_true', help='Use key file keylist.txt to skip user/password authentication')
-parser.add_argument('-s', action='store_true', help='Get simple output which doesn\'t include full description of signatures')
+parser.add_argument('-s', action='store_true', help='Get simple output includes only threat ID and threat name')
 parser.add_argument('-o', help='write to a file instead of stdout. Specify a filename')
 parser.add_argument('hostname', action="store", default=False, help='PANW Firewall hostname')
 
@@ -30,11 +36,14 @@ else:
 
 fw_url = 'https://' + args.hostname + '/api/?'
 
+print fw_url
+
 # Key generation
 
 def keygen(url):
-#	print "generate a new key"
+	print "generate a new key"
 	params_keygen = urllib.urlencode({'type': 'keygen', 'user': 'admin', 'password': 'admin'})
+	print params_keygen
  
 	try: 
 		response_keygen = urllib2.urlopen(url, params_keygen, 10).read()
@@ -48,7 +57,6 @@ def keygen(url):
 		sys.exit(1)
 	else:
 		key_tree = ET.fromstring(response_keygen)
-#		if sysinfo_tree.get('status') == "success":
 		if key_tree.get('status') == "success":
 			return key_tree.find('result/key').text
 		else:
@@ -57,8 +65,6 @@ def keygen(url):
 
 # list file processing
 if args.o:
-#	if os.path.exists(args.o):
-#		exit(1)
 	try:
 		f_list = open(args.o, 'w+')
 	except IOError:
@@ -74,7 +80,6 @@ if args.f:
 			f.seek(0,0)
 			reader = csv.DictReader(f,["host","key"])
 			for row in reader:
-#				print row
 				if row['host'] == args.hostname:
 					print "key for the host found in keylist.txt. use existing key."
 					sessionkey = row['key']
@@ -82,7 +87,6 @@ if args.f:
 				sessionkey = keygen(fw_url)
 				writer = csv.writer(f)
 				writer.writerow( (args.hostname,sessionkey))
-#				print "added new key for the host in the file."
 		finally:
 			f.close()
 	except IOError:
@@ -96,7 +100,6 @@ params_systeminfo = urllib.urlencode({'type': 'op', 'key': sessionkey, 'cmd': '<
 
 try:
 	response_sysinfo = urllib2.urlopen(fw_url, params_systeminfo, 10).read()
-#	print response_sysinfo
 except URLError, e:
 	if hasattr(e, 'reason'):
 		print 'We failed to reach a server.'
@@ -131,9 +134,8 @@ else:
 		print response_sysinfo
 		sys.exit(1)
 
-# signature list
+# fetch all signatures only ID and name
 params_signature = urllib.urlencode({'type': 'config', 'key': sessionkey, 'action': 'get', 'xpath': '/config/predefined/threats/' + threat_type })
-
 try:
 	response_sig = urllib2.urlopen(fw_url, params_signature, 10).read()
 except URLError, e:
@@ -149,7 +151,6 @@ else:
 #	print response_sig
 
 	sig_tree = ET.fromstring(response_sig)
-
 	xpath = 'result/' + threat_type + '/entry'
 	if args.o:
 		f_list.write("Total number of signatures : {0}\n-----\n".format(len(sig_tree.findall(xpath))))
@@ -159,20 +160,20 @@ else:
 	if threat_type == 'vulnerability':
 		if args.o:
 			if args.s:
-				f_list.write("id\tname\tseverity\tcategory\tdefault-action\taffected-host\tcve#\tvendorID\n")
+				f_list.write("id\tname\n")
 			else:
-				f_list.write("id\tname\tseverity\tcategory\tdefault-action\taffected-host\tcve#\tvendorID\tdescription\n")
+				f_list.write("id\tnamey\tseverity\treference\tcve\tbugtraq\tvendorID\tdescription\n")
 		else:
 			if args.s:
-				print "id\tname\tseverity\tcategory\tdefault-action\taffected-host\tcve#\tvendorID"
+				print "id\tname"
 			else:
-				print "id\tname\tseverity\tcategory\tdefault-action\taffected-host\tcve#\tvendorID\tdescription"
+				print "id\tnamey\tseverity\treference\tcve\tbugtraq\tvendorID\tdescription"
 	else:
 		if args.o:
 			if args.s:
-				f_list.write("id\tname\tseverity\tcategory\tdefault-action\n")
+				f_list.write("id\tname\n")
 			else:
-				f_list.write("id\tname\tseverity\tcategory\tdefault-action\tdescription\n")
+				f_list.write("id\tname\tseverity\treference\tdescription\n")
 		else:
 			if args.s:
 				print "id,name,severity,category,default-action"
@@ -188,18 +189,18 @@ else:
 	data.sort()
 	container[:] = [item[-1] for item in data]
 
-#	for element in sig_tree.findall(xpath):
+# fetch detailed information of each signature items
+
 	for element in container:
 		id = element.get('name')
 		name = element.find('threatname').text
-		severity = element.find('severity').text
-		category = element.find('category').text
 
-# get description
-		if not args.s:
-			params_des = urllib.urlencode({'type': 'op', 'key': sessionkey, 'cmd': '<show><threat><id>' + id + '</id></threat></show>' })
+		if args.s:
+			print("{0}\t{1}".format(id,name))
+		else:
+			params_detail = urllib.urlencode({'type': 'op', 'key': sessionkey, 'cmd': '<show><threat><id>' + id + '</id></threat></show>' })
 			try:
-				response_des = urllib2.urlopen(fw_url, params_des , 10).read()
+				response_detail = urllib2.urlopen(fw_url, params_detail , 10).read()
 			except URLError, e:
 				if hasattr(e, 'reason'):
 					print 'We failed to reach a server.'
@@ -209,61 +210,95 @@ else:
 					print 'Error code: ', e.code
 				sys.exit(1)
 			else:
-#				print response_des
-				des_tree = ET.fromstring(response_des)
-				if des_tree.get('status') == "success":
-					desc_raw = des_tree.find('result/entry/description').text.strip()
+				reference = ""
+#				print response_detail
+				detail_tree = ET.fromstring(response_detail)
+				if detail_tree.get('status') == "success":
+					desc_raw = detail_tree.find('result/entry/description').text.strip()
 					description = desc_raw.replace('\n', ' ')
-#					threat_date = sysinfo_tree.find('result/system/threat-release-date').text
-	
-#					print description
+					severity = detail_tree.find('result/entry/severity').text
+					reference_tree = detail_tree.find('result/entry/reference');
+					if reference_tree is None :
+						reference = ''
+					else:
+						c = 0
+						for m in reference_tree:
+							if c == 0:
+								reference = reference + m.text
+							else:
+								reference = reference + " " + m.text
+							c += 1
 				else:
-					print response_des
-#
+					print response_detail
 
-		if element.find('default-action') is None :
-			d_act = ''
-		else :
-			d_act = element.find('default-action').text
-		if threat_type == 'vulnerability':
-			if element.find('cve/member') is None :
-				cve = ''
-			else:
-				cve = element.find('cve/member').text
-			if element.find('vendor/member') is None :
-				vendor = ''
-			else:
-				vendor = element.find('vendor/member').text
-			if element.find('affected-host/server') is None:
-				if element.find('affected-host/client').text == 'yes':
-					affect = 'client'
-			elif element.find('affected-host/client') is None:
-				if element.find('affected-host/server').text == 'yes':
-					affect = 'server'
-			else:
-				affect = ''
-			
-			if args.o:
-				if args.s:
-					f_list.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n".format(id,name,severity,category,d_act,affect,cve,vendor))
+			cve = ""
+			vendor = ""
+			bugtraq = ""
+
+			if threat_type == 'vulnerability':
+#				print ("{0},{1}".format(id,detail_tree.findall('result/entry/vulnerability/cve')))
+				cve_tree = detail_tree.find('result/entry/vulnerability/cve');
+				if cve_tree is None :
+					cve = ''
 				else:
-					f_list.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\n".format(id,name,severity,category,d_act,affect,cve,vendor,description))
+					c = 0
+					for m in cve_tree:
+						if c == 0:
+							cve = cve + m.text
+						else:
+							cve = cve + " " + m.text
+						c += 1
+				vendor_tree = detail_tree.find('result/entry/vulnerability/vendor');
+				if vendor_tree is None :
+					vendor = ''
+				else:
+					c = 0
+					for m in vendor_tree:
+						if c == 0:
+							vendor = vendor + m.text
+						else:
+							vendor = vendor + " " + m.text
+						c += 1
+				bugtraq_tree = detail_tree.find('result/entry/vulnerability/bugtraq');
+				if bugtraq_tree is None :
+					bugtraq = ''
+				else:
+					c = 0
+					for m in bugtraq_tree:
+						if c == 0:
+							bugtraq = bugtraq + m.text
+						else:
+							bugtraq = bugtraq + " " + m.text
+						c += 1
+
+#				print id,cve,vendor,bugtraq
+				if args.o:
+					if args.s:
+						f_list.write("{0}\t{1}\n".format(id,name))
+					else:
+						f_list.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n".format(id,name,severity,reference,cve,bugtraq,vendor,description))
+
+				else:
+					if args.s:
+						print("{0}\t{1}".format(id,name))
+					else:
+						print("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\n".format(id,name,severity,reference,cve,bugtraq,vendor,description))
+
 			else:
-				if args.s:
-					print("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}".format(id,name,severity,category,d_act,affect,cve,vendor))
+				if args.o:
+					if args.s:
+						f_list.write("{0}\t{1}\n".format(id,name))
+					else:
+						f_list.write("{0}\t{1}\t{2}\t{3}\t{4}\n".format(id,name,severity,reference,description))
+
 				else:
-					print("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}".format(id,name,severity,category,d_act,affect,cve,vendor,description))
-		else:
-			if args.o:
-				if args.s:
-					f_list.write("{0}\t{1}\t{2}\t{3}\t{4}\n".format(id,name,severity,category,d_act))
-				else:
-					f_list.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n".format(id,name,severity,category,d_act,description))
-			else:
-				if args.s:
-					print("{0}\t{1}\t{2}\t{3}\t{4}".format(id,name,severity,category,d_act))
-				else:
-					print("{0}\t{1}\t{2}\t{3}\t{4}\t{5}".format(id,name,severity,category,d_act,description))
+					if args.s:
+						print("{0}\t{1}".format(id,name))
+					else:
+						print("{0}\t{1}\t{2}\t{3}\t{4}\n".format(id,name,severity,reference,description))
+				
+
+
 if args.o:
 	f_list.close()
 sys.exit(0)
