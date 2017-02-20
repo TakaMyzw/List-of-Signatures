@@ -1,31 +1,55 @@
 List-of-Signatures
 ==================
 
-Listing all of threat signatures for PANW Firewall as TSV(Tab Separated Value) format.
+Overview
 
-This script obtains vulnerability/phonehome signatures from PANW Firewall and stores with TSV format.
+Listing all of threat signatures of PANW Firewall with TSV(Tab Separated Value) format.
 
-Requirements:
+## Description
 
-* PAN-OS version: 5.0 or later with Threat Prevention subscription license
-* PANW Firewall appliance: all, including VM series
+Although you are able to search and read information of threat signatures(vulnerability and phone home payload) on a PANW hosted website called ThreaVault as well as administrative console of the firewall, this script additonally allows you to download all information for viewing offline and editing your convenient way.
 
-How to use this script:
+## Requirements:
 
-1. connect to a PANW firwall from a host run this script
-2. modify credential in "params_keygen" parameter of the script
-3. run this script
+* PAN-OS version: 8.0 or later with Threat Prevention subscription
+* PANW Firewall appliance: all platforms, including VM series
+* Application and Threat signature(A.K.A. weekly update) has to be installed in the firewall
+* IP reachability between a host run this script and a firewall
+* Openssl which supports ECC kind cipher
+* Python 2.7 or above
 
-Output format(vulnerability):
+## Usage
+
+Options:
+* -t {vul,ph} : Type of signature. vulnerability or phone home payload
+* -f : Use API key instead of credential. This makes first authentication slightly faster
+* -s : Simple output. see below
+* -o : Write to a file instead of stdout
+
+## Output Sample
+
+vulnerability(simple):
 ```
 Content Version : xxx-xxxx
 Release Date : YYYY/MM/DD  HH:MM:SS
 Total number of signatures : XXXX
 -----
-id	name	severity	category	default-action	affected-host	cve#	vendorID	description
-30003	Microsoft Windows DCOM RPC Interface Buffer Overrun Vulnerability........
+id	name
+3000	Novell File Reporter Agent XML Tag Overflow Vulnerability
+.......
+```
+
+vulnerability(detail):
+```
+Content Version : xxx-xxxx
+Release Date : YYYY/MM/DD  HH:MM:SS
+Total number of signatures : XXXX
+-----
+id	namey	severity	reference	cve	bugtraq	vendorID	description
+30000	Novell File Reporter Agent XML Tag Overflow Vulnerability	high	http://www.zerodayinitiative.com/advisories/ZDI-11-116/	CVE-2011-0994......
 .......
 ..
 ```
+
 Note:
 * This script may take more than 10 minute as it obtains all of descriptions which can only be gotten by "operational" command of API.

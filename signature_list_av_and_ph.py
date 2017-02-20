@@ -36,14 +36,14 @@ else:
 
 fw_url = 'https://' + args.hostname + '/api/?'
 
-print fw_url
+#print fw_url
 
 # Key generation
 
 def keygen(url):
 	print "generate a new key"
 	params_keygen = urllib.urlencode({'type': 'keygen', 'user': 'admin', 'password': 'admin'})
-	print params_keygen
+#	print params_keygen
  
 	try: 
 		response_keygen = urllib2.urlopen(url, params_keygen, 10).read()
@@ -282,7 +282,7 @@ else:
 					if args.s:
 						print("{0}\t{1}".format(id,name))
 					else:
-						print("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\n".format(id,name,severity,reference,cve,bugtraq,vendor,description))
+						print("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n".format(id,name,severity,reference,cve,bugtraq,vendor,description))
 
 			else:
 				if args.o:
