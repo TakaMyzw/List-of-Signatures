@@ -52,4 +52,5 @@ id	namey	severity	reference	cve	bugtraq	vendorID	description
 ```
 
 Note:
-* This script may take more than 10 minute as it obtains all of descriptions which can only be gotten by "operational" command of API.
+* This script may take more than 10 minute as it obtains all of descriptions which can only be gotten by "operational" command of API
+* reference, cve, bugtraq and vendorID fields may have multiple items separated with a white space 
